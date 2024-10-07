@@ -15,7 +15,6 @@ enum class TokenType
     Operator,
     Number
 };
-
 //
 //==================================================================================================
 
@@ -28,12 +27,10 @@ struct Number
     [[nodiscard]] auto str() const -> string
     {
         stringstream ss;
-        ss << "["
-           << "Number, " << value << "]";
+        ss << "[" << "Number, " << value << "]";
         return ss.str();
     }
 };
-
 //
 //==================================================================================================
 
@@ -46,8 +43,7 @@ struct Brackets
     [[nodiscard]] auto str() const -> string
     {
         stringstream ss;
-        ss << "["
-           << "Bracket, " << value << "]";
+        ss << "[" << "Bracket, " << value << "]";
         return ss.str();
     }
 };
@@ -69,8 +65,7 @@ struct Operator
     [[nodiscard]] auto str() const -> string
     {
         stringstream ss;
-        ss << "["
-           << "Operator, " << value << "]";
+        ss << "[" << "Operator, " << value << "]";
         return ss.str();
     }
 };
@@ -90,7 +85,6 @@ auto str(const TokenValue& token_value) -> string
     auto visitor = [&](auto&& value) { return value.str(); };
     return std::visit(std::move(visitor), token_value);
 }
-
 //
 //==================================================================================================
 
