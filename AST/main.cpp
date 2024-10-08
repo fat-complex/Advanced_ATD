@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -106,44 +107,27 @@ public:
     }
 };
 
+static const unordered_map</*raw token type*/ char, ANode> node_factory{
+    {'(', ANode{TokenType::Parenthesis, LeftParentheses{}}},
+    {')', ANode{TokenType::Parenthesis, RightParentheses{}}},
+    {'+', ANode{TokenType::Operator, Plus{}}},
+    {'-', ANode{TokenType::Operator, Minus{}}},
+    {'*', ANode{TokenType::Operator, Mul{}}},
+    {'/', ANode{TokenType::Operator, Div{}}}};
+
 int main()
 {
     const auto expr = "7+3/25*(5-2)";
-    const auto subst_exp =  ParenthesisSubstitution::perform(expr);
+    const auto subst_exp = ParenthesisSubstitution::perform(expr);
     cout << "Substitution expr" << subst_exp << endl;
 
     vector<ANode> nodes;
     for (auto it = subst_exp.begin(), end = subst_exp.end(); it != end; ++it)
     {
         const char ch = *it;
-        if (ch == '(')
+        if (node_factory.contains(ch))
         {
-            nodes.emplace_back(TokenType::Parenthesis, LeftParentheses{});
-            continue;
-        }
-        if (ch == ')')
-        {
-            nodes.emplace_back(TokenType::Parenthesis, RightParentheses{});
-            continue;
-        }
-        if (ch == '+')
-        {
-            nodes.emplace_back(TokenType::Operator, Plus{});
-            continue;
-        }
-        if (ch == '-')
-        {
-            nodes.emplace_back(TokenType::Operator, Minus{});
-            continue;
-        }
-        if (ch == '*')
-        {
-            nodes.emplace_back(TokenType::Operator, Mul{});
-            continue;
-        }
-        if (ch == '/')
-        {
-            nodes.emplace_back(TokenType::Operator, Div{});
+            nodes.push_back(node_factory.at(ch));
             continue;
         }
         if (isdigit(ch))
