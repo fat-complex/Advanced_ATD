@@ -40,12 +40,6 @@ public:
         parent->children.push_back(child);
         child->parent = parent;
     }
-
-    void traverse(const std::function<void(const T& visited)>& callback)
-    {
-        traverse(root_, callback);
-    }
-
 private:
     TRoot root_{};
 };
