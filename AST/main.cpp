@@ -10,10 +10,11 @@ using AST = SimpleTree<ANode>;
 int main()
 {
     auto ast = AST{};
-
     ast.add_child(AST::make_root({}), {});
+
     auto root = ast.get_root();
 
+    // Define visitors
     auto l_paren_visitor = [&](LeftParentheses)
     {
         const auto new_root = AST::make_root(ANode{});
