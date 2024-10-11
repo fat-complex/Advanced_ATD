@@ -50,6 +50,7 @@ auto eval(const AST& ast, const TRoot& root) -> void
         auto res =
             op(extract_number(left->data.token_value), extract_number(right->data.token_value));
         root->data = ANode{TokenType::Number, res};
+        root->children.clear();
     }
 }
 
@@ -61,6 +62,7 @@ int main()
 
     auto ast = make_ast(tokens);
 
+    // Visit and eval AST
     eval(ast, ast.get_root());
 
     cout << endl << "RES: " << ast.get_root()->data.to_string() << endl;
