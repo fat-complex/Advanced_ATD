@@ -46,7 +46,7 @@ auto eval(const AST& ast, const TRoot& root) -> void
         eval(ast, left);
         eval(ast, right);
 
-        auto op = visit(visitors, root->data.token_value);
+        const auto op = visit(visitors, root->data.token_value);
         auto res =
             op(extract_number(left->data.token_value), extract_number(right->data.token_value));
         root->data = ANode{TokenType::Number, res};
