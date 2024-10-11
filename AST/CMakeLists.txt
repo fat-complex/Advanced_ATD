@@ -9,4 +9,6 @@ add_executable(Advanced_ATD
         parenthesis_substitution.h
         simple_tree.h
         tokenizer.h
-        tokenizer.cpp)
+        tokenizer.cpp
+        make_ast.h
+        make_ast.cpp)
