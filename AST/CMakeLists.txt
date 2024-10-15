@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.29)
-project(Advanced_ATD)
+project(AST)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(Advanced_ATD
+add_executable(${PROJECT_NAME}
         main.cpp
         parenthesis_substitution.cpp
         parenthesis_substitution.h
