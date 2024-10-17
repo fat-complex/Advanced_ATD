@@ -31,7 +31,6 @@ public:
         vector<int> sums{};
         for (const auto& [sym, coeffs] : weights_table)
         {
-            cout << sym << ", " << calculate_sum(coeffs) << endl;
             sums.push_back(calculate_sum(coeffs));
         }
         auto max_threshold = *max_element(sums.begin(), sums.end());
