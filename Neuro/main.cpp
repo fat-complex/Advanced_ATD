@@ -183,7 +183,6 @@ int main()
     for (const auto& file : filesystem::directory_iterator{input_path_dir})
     {
         neuron_a.train(file);
-
     }
     for (const auto& file : filesystem::directory_iterator{input_path_dir})
     {
