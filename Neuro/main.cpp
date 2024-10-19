@@ -6,40 +6,81 @@
 #include <vector>
 
 using namespace std;
+namespace fs = filesystem;
 
 template <typename T>
 using Matrix = vector<vector<T>>;
 
-using Weights = unordered_map</*Alpha char*/ char, /*signature*/ Matrix<int>>;
+using Weights = pair</*Alpha char*/ char, /*signature*/ Matrix<int>>;
+
+struct ExpectedResult
+{
+    char sym;
+    bool value;
+};
+
+struct Answer
+{
+    char expected_sym;
+    char actual_sym;
+    bool matched_actual_sym;
+    bool matched_expected_sym;
+    Matrix<int> input;
+};
 
 class Neuron
 {
-    inline static int s_default_threshold{35};
-
 public:
-    Neuron(int N, int M)
-        : matrix_(N, vector(M, 0))
-        , threshold_{s_default_threshold}
+    virtual ~Neuron() = default;
+    Neuron(size_t N, size_t M)
+        : N_{N}
+        , M_{M}
     {
     }
 
-    auto accept(const filesystem::path& path) -> int
+    [[nodiscard]] auto accept(const filesystem::path& sample) const -> Answer
     {
-        matrix_ = read_file(path);
-        auto [max_weights, weights_table] = weights();
+        auto [expected_input_result, input_matrix_] = read_file(sample);
+        const auto expected_sym = weights_.first;
+        const auto sum = calculate_sum(weights_.second, input_matrix_);
 
-        vector<int> sums{};
-        for (const auto& [sym, coeffs] : weights_table)
+        return {expected_sym,
+                expected_input_result.sym,
+                expected_input_result.value,
+                sum > threshold_,
+                input_matrix_};
+    }
+
+    auto train(const filesystem::path& sample, int loop_limits = 10000) -> void
+    {
+        auto is_false_positive_matched = [](const auto& answer)
+        { return answer.expected_sym != answer.actual_sym and answer.matched_expected_sym; };
+
+        auto is_false_negative_matched = [](const auto& answer)
         {
-            sums.push_back(calculate_sum(coeffs));
-        }
-        auto max_threshold = *max_element(sums.begin(), sums.end());
+            return answer.expected_sym == answer.actual_sym and
+                   !(answer.matched_expected_sym == answer.matched_actual_sym);
+        };
+        auto is_wrong = [&](const auto& answer)
+        { return is_false_positive_matched(answer) or is_false_negative_matched(answer); };
 
-        return max_threshold > threshold_;
+        auto res = accept(sample);
+        while (is_wrong(res) and loop_limits--)
+        {
+            if (is_false_positive_matched(res))
+            {
+                decrease_weights(res.input);
+            }
+            if (is_false_negative_matched(res))
+            {
+                increase_weights(res.input);
+            }
+            res = accept(sample);
+        }
     }
 
 private:
-    static auto read_file(const filesystem::path& path) -> Matrix<int>
+    static auto read_file(const filesystem::path& path) -> pair<ExpectedResult, Matrix<int>>
     {
         ifstream file{path};
         if (!file.is_open())
@@ -55,105 +96,106 @@ private:
                 line.begin(), line.end(), back_inserter(row), [](const char c) { return c - '0'; });
             matrix.push_back(move(row));
         }
-        return matrix;
+        return {get_file_info(path), matrix};
     }
 
-    [[nodiscard]] auto calculate_sum(const Matrix<int>& weights) const -> int
+    static auto get_file_info(const filesystem::path& path) -> ExpectedResult
+    {
+        const auto filename_view = path.filename().string();
+        const auto sym{filename_view[0]};
+        const auto success{filename_view.find("success") != string_view::npos};
+
+        return {sym, success};
+    }
+
+    [[nodiscard]] auto calculate_sum(const Matrix<int>& weights,
+                                     const Matrix<int>& input_matrix) const -> int
     {
         int sum{0};
-        for (size_t i = 0; i < matrix_.size(); ++i)
+        for (size_t i = 0; i < N_; ++i)
         {
-            for (size_t j = 0; j < matrix_[i].size(); ++j)
+            for (size_t j = 0; j < M_; ++j)
             {
-                sum += (matrix_[i][j] * weights[i][j]);
+                sum += (weights[i][j] * input_matrix[i][j]);
             }
         }
         return sum;
     }
 
-    static auto weights() -> pair<unordered_map</*Sym*/ char, /*max weight*/ int>, Weights>
+    auto increase_weights(const Matrix<int>& input_matrix) -> void
     {
-        int n{-1000};
-        Weights weights{{'A',
-                         {{1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, n, n, n, n, n, n, n, n, 1}}},
-                        {'B',
-                         {{1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}}},
-                        {'C',
-                         {{1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-                          {1, n, n, n, n, n, n, n, n, n},
-                          {1, n, n, n, n, n, n, n, n, n},
-                          {1, n, n, n, n, n, n, n, n, n},
-                          {1, n, n, n, n, n, n, n, n, n},
-                          {1, n, n, n, n, n, n, n, n, n},
-                          {1, n, n, n, n, n, n, n, n, n},
-                          {1, n, n, n, n, n, n, n, n, n},
-                          {1, n, n, n, n, n, n, n, n, n},
-                          {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}}},
-                        {'D',
-                         {{1, 1, 1, 1, 1, 1, 1, 1, n, n},
-                          {1, n, n, n, n, n, n, n, 1, n},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, n, n, n, n, n, n, n, n, 1},
-                          {1, n, n, n, n, n, n, n, 1, n},
-                          {1, 1, 1, 1, 1, 1, 1, 1, n, n}}},
-                        {'E',
-                         {{1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-                          {1, n, n, n, n, n, n, n, n, n},
-                          {1, n, n, n, n, n, n, n, n, n},
-                          {1, n, n, n, n, n, n, n, n, n},
-                          {1, n, n, n, n, n, n, n, n, n},
-                          {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-                          {1, n, n, n, n, n, n, n, n, n},
-                          {1, n, n, n, n, n, n, n, n, n},
-                          {1, n, n, n, n, n, n, n, n, n},
-                          {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}}}};
-
-        unordered_map</*Sym*/ char, /*max weight*/ int> max_weights{};
-        for (const auto& [sym, weights] : weights)
+        for (size_t i = 0; i < N_; ++i)
         {
-            int sum{0};
-            for (const auto& row : weights)
+            for (size_t j = 0; j < M_; ++j)
             {
-                sum += accumulate(
-                    row.begin(), row.end(), 0, [&](auto a, auto b) { return a + (b > 0 ? b : 0); });
+                weights_.second[i][j] += input_matrix[i][j];
             }
-            max_weights[sym] = sum;
         }
-        return {max_weights, weights};
     }
 
-    Matrix<int> matrix_{};
-    int threshold_{0};
+    auto decrease_weights(const Matrix<int>& input_matrix) -> void
+    {
+        for (size_t i = 0; i < N_; ++i)
+        {
+            for (size_t j = 0; j < M_; ++j)
+            {
+                weights_.second[i][j] -= input_matrix[i][j];
+            }
+        }
+    }
+
+    size_t N_{};
+    size_t M_{};
+
+protected:
+    int threshold_{};
+    Weights weights_{};
+};
+
+class NeuronA : public Neuron
+{
+public:
+    NeuronA(size_t N, size_t M)
+        : Neuron(N, M)
+    {
+        threshold_ = 35;
+        int p{0};
+        int n{0};
+        weights_ = {'A',
+                    {{p, p, p, p, p, p, p, p, p, p},
+                     {p, n, n, n, n, n, n, n, n, p},
+                     {p, n, n, n, n, n, n, n, n, p},
+                     {p, n, n, n, n, n, n, n, n, p},
+                     {p, n, n, n, n, n, n, n, n, p},
+                     {p, p, p, p, p, p, p, p, p, p},
+                     {p, n, n, n, n, n, n, n, n, p},
+                     {p, n, n, n, n, n, n, n, n, p},
+                     {p, n, n, n, n, n, n, n, n, p},
+                     {p, n, n, n, n, n, n, n, n, p}}};
+    }
 };
 
 int main()
 {
-    Neuron neuron(10, 10);
-    int out = neuron.accept({"Neuro/samples/A_success.txt"});
+    const auto input_path_dir = fs::path{"samples"};
 
-    cout << "Maybe A? : " << out << endl;
+    NeuronA neuron_a(10, 10);
+    for (const auto& file : filesystem::directory_iterator{input_path_dir})
+    {
+        neuron_a.train(file);
+
+    }
+    for (const auto& file : filesystem::directory_iterator{input_path_dir})
+    {
+        auto [expected_sym, actual_sym, matched_actual, matched_expected, _] =
+            neuron_a.accept(file.path());
+
+        cout << "sample: " << file.path().filename() << endl;
+        cout << "The expected value of the symbol " << expected_sym << " for actual input: ["
+             << actual_sym << ", " << matched_actual << "]"
+             << " is " << matched_expected << endl
+             << endl;
+    }
 
     return 0;
 }
