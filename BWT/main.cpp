@@ -238,6 +238,17 @@ public:
         }
     }
 
+    auto connect(const vector<int>& nodes) -> void
+    {
+        for (auto& leaf1: first_tree_.get_leafs())
+        {
+            for (auto &leaf2 : second_tree_.get_leafs())
+            {
+
+            }
+        }
+    }
+
 private:
     uint8_t depth_;
     uint8_t number_of_colors_;
