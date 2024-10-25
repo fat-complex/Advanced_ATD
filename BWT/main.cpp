@@ -3,79 +3,96 @@
 #include <memory>
 #include <optional>
 #include <random>
-#include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 using namespace std;
 
 template <typename T>
-using Uptr = unique_ptr<T>;
-
-template <typename T>
 using Sptr = shared_ptr<T>;
 
-template <typename T, typename Property>
-class Edge
+struct Node
 {
-public:
-    T u;
-    T v;
-    Property property;
+    using Link = Sptr<Node>;
 
-    Edge(T u, T v, Property property)
-        : u{u}
-        , v{v}
-        , property{property}
+    int id;
+    Link left;
+    Link right;
+    Link parent;
+
+    explicit Node(const int id, Link left = nullptr, Link right = nullptr, Link parent = nullptr)
+        : id(id)
+        , left(move(left))
+        , right(move(right))
+        , parent(std::move(parent))
     {
     }
 };
 
-enum Colors
+template <typename Property>
+class Edge
+{
+public:
+    Node::Link u;
+    Node::Link v;
+    Property property;
+
+    Edge(Node::Link u, Node::Link v, Property property)
+        : u{std::move(u)}
+        , v{std::move(v)}
+        , property{property}
+    {
+    }
+
+    bool operator==(const Edge& rhs) const
+    {
+        return u == rhs.u && v == rhs.v or u == rhs.v and v == rhs.u;
+    }
+};
+
+enum Color
 {
     Noop,
     Red,
     Green,
     Blue,
-    Grey,
     Yellow,
-    Brown,
-    Violet
 };
 
 // default mode
-array<Colors, 4> colors = {Red, Green, Blue, Grey};
+unordered_set colors = {Red, Green, Blue, Yellow};
 
-template <typename T = int>
+auto get_available_color(const unordered_set<Color>& busy_colors) -> Color
+{
+    vector<Color> available_colors;
+    for (const auto& color : colors)
+    {
+        if (!busy_colors.contains(color))
+        {
+            available_colors.push_back(color);
+        }
+    }
+    random_device random_device;
+    mt19937_64 rng{random_device()};
+    uniform_int_distribution<mt19937_64::result_type> distribution(0, available_colors.size() - 1);
+    return available_colors[distribution(rng)];
+}
+
 class BTree
 {
 public:
-    struct Node;
-    using Link = Sptr<Node>;
-    using ColorEdge = Edge<const Link&, Colors>;
+    using Link = Node::Link;
+    using ColorEdge = Edge<Color>;
 
-    struct Node
-    {
-        T data;
-        Link left;
-        Link right;
-        Link parent;
-
-        explicit Node(T data, Link left = nullptr, Link right = nullptr, Link parent = nullptr)
-            : data(move(data))
-            , left(move(left))
-            , right(move(right))
-        {
-        }
-    };
     BTree() = default;
 
-    auto insert(const T& data) -> void
+    auto insert(const int id) -> void
     {
-        insert(data, root_, nullptr);
+        insert(id, root_, nullptr);
     }
 
-    auto print(ostream& out = cout) -> void
+    auto print(ostream& out = cout) const -> void
     {
         if (root_ == nullptr)
         {
@@ -85,35 +102,42 @@ public:
         out << as_string(root_) << endl;
     }
 
-    auto get_leafs() const -> vector<ColorEdge>
+    [[nodiscard]] auto get_leafs() const -> vector<Link>
     {
-        vector<ColorEdge> leaf_edges;
-        for (ColorEdge& edge : edges_)
+        auto get_left_and_right = [&](const Link& root) -> pair<Link, Link>
+        { return make_pair(root->left, root->right); };
+        vector<Link> leaf_edges;
+        for (const auto& edge : edges_)
         {
-            if (edge.left == nullptr and edge.right == nullptr)
+            auto [u_left, u_right] = get_left_and_right(edge.u);
+            auto [v_left, v_right] = get_left_and_right(edge.v);
+            if (u_left == nullptr and u_right == nullptr)
             {
-                leaf_edges.push_back(edge);
+                leaf_edges.push_back(edge.u);
+            }
+            if (v_left == nullptr and v_right == nullptr)
+            {
+                leaf_edges.push_back(edge.v);
             }
         }
         return leaf_edges;
     }
 
-private:
-    void insert(T data, Link& root, const Link& parent)
+    void insert(const int data, Link& root, Link parent)
     {
         if (root == nullptr)
         {
-            root = make_unique<Node>(data);
+            root = make_shared<Node>(data);
             root->parent = parent;
             color_edge_parent_to_child(root, parent);
             return;
         }
-        if (data < root->data)
+        if (data < root->id)
         {
             insert(data, root->left, root);
             return;
         }
-        if (data > root->data)
+        if (data > root->id)
         {
             insert(data, root->right, root);
         }
@@ -121,96 +145,90 @@ private:
 
     [[nodiscard]] string as_string(const Link& root) const
     {
-        std::string left_str = (root->left == nullptr) ? "{}" : as_string(root->left);
-        std::string right_str = (root->right == nullptr) ? "{}" : as_string(root->right);
+        const std::string left_str = (root->left == nullptr) ? "{}" : as_string(root->left);
+        const std::string right_str = (root->right == nullptr) ? "{}" : as_string(root->right);
         std::string result =
-            "{" + std::to_string(root->data) + ", " + left_str + ", " + right_str + "}";
+            "{" + std::to_string(root->id) + ", " + left_str + ", " + right_str + "}";
         return result;
     }
 
-    auto color_edge_parent_to_child(const Link& leaf, const Link& parent) -> void
+    auto find_node(int id) -> Link
+    {
+        return find_node(root_, id);
+
+    }
+
+    auto find_node(Link& root, int id) -> Link
+    {
+        if (root_ == nullptr or root->id == id)
+        {
+            return root;
+        }
+        if (id < root->id)
+        {
+            return find_node(root->left, id);
+        }
+        return find_node(root->right, id);
+    }
+
+    auto color_edge_parent_to_child(Link leaf, const Link parent) -> void
     {
         if (parent == nullptr)
         {
             return;
         }
-        auto color_result = Colors::Noop;
-        auto parent_color =  get_color_edge(parent, parent->parent);
+        auto color_result = Color::Noop;
+        auto parent_color = get_color_edge(parent, parent->parent);
         if (is_left_child(leaf, parent) and has_right_bro(parent))
         {
             auto right_bro_color = get_color_edge(parent, parent->right);
-            color_result = get_avaliable_color({parent_color, right_bro_color});
+            color_result = get_available_color({parent_color, right_bro_color});
         }
         if (is_left_child(leaf, parent) and !has_right_bro(parent))
         {
-            color_result = get_avaliable_color({parent_color});
+            color_result = get_available_color({parent_color});
         }
         if (is_right_child(leaf, parent) and has_left_bro(parent))
         {
             auto left_bro_color = get_color_edge(parent, parent->left);
-            color_result = get_avaliable_color({parent_color, left_bro_color});
+            color_result = get_available_color({parent_color, left_bro_color});
         }
         if (is_right_child(leaf, parent) and !has_left_bro(parent))
         {
-            color_result = get_avaliable_color({parent_color});
+            color_result = get_available_color({parent_color});
         }
         auto color_edge = ColorEdge(leaf, parent, color_result);
         edges_.push_back(move(color_edge));
     }
 
-    auto get_color_edge(const Link& u, const Link& v) -> Colors
+    auto get_color_edge(Link u, Link v) -> Color
     {
-        const auto foundIt = find_if(edges_.begin(), edges_.end(), [&](auto& edge)
-        {
-            return edge.u == u and edge.v == v or edge.v == u and edge.u == v;
-        });
-        return foundIt != edges_.end() ? foundIt->property : Colors::Noop;
+        const auto foundIt = find(edges_.begin(), edges_.end(), Edge{u, v, Color::Noop});
+        return foundIt != edges_.end() ? foundIt->property : Color::Noop;
     }
 
-    auto is_left_child(const Link& root, const Link& parent) -> bool
+    static auto is_left_child(const Link& root, const Link& parent) -> bool
     {
         return parent != nullptr && parent->left == root;
     }
 
-    auto is_right_child(const Link& root, const Link& parent) -> bool
+    static auto is_right_child(const Link& root, const Link& parent) -> bool
     {
         return parent != nullptr && parent->right == root;
     }
 
-    auto has_left_bro(const Link& root) -> bool
+    static auto has_left_bro(const Link& root) -> bool
     {
         return root->left != nullptr;
     }
 
-    auto has_right_bro(const Link& root) -> bool
+    static auto has_right_bro(const Link& root) -> bool
     {
         return root->right != nullptr;
     }
 
-    auto get_avaliable_color(const vector<Colors>& busy_colors)
-    {
-        auto available_colors = colors;
-        auto rest_colors = vector<Colors>{};
-        for (const auto& color : busy_colors)
-        {
-
-            if (find(colors.begin(), colors.end(), color) == colors.end() and color != Noop)
-            {
-                rest_colors.push_back(color);
-            }
-        }
-        mt19937 engine;
-        engine.seed(time(nullptr));
-        if (rest_colors.empty())
-        {
-            return available_colors[engine() % available_colors.size()];
-        }
-        auto idx = engine() % rest_colors.size();
-        return rest_colors[idx];
-    }
-
-    Link root_;
-    vector<ColorEdge> edges_;
+    Link root_{};
+    vector<ColorEdge> edges_{};
 };
 
 class BWT
@@ -220,6 +238,10 @@ public:
         : depth_{depth}
         , number_of_colors_{number_of_colors}
     {
+        get_generated_ids(2);
+        feel_first(get_generated_ids(0));
+        feel_second(get_generated_ids(1));
+        connect();
     }
 
     auto feel_first(const vector<int>& nodes) -> void
@@ -238,29 +260,61 @@ public:
         }
     }
 
-    auto connect(const vector<int>& nodes) -> void
+    auto connect() -> void
     {
-        for (auto& leaf1: first_tree_.get_leafs())
-        {
-            for (auto &leaf2 : second_tree_.get_leafs())
-            {
+        auto first_leafs = first_tree_.get_leafs();
+        auto second_leafs = second_tree_.get_leafs();
 
+        for (auto& leaf1 : first_leafs)
+        {
+            for (auto& leaf2 : second_leafs)
+            {
+                first_tree_.color_edge_parent_to_child(leaf1, leaf2);
             }
         }
     }
 
+    auto find_by_id(int id)
+    {
+        auto first = first_tree_.find_node(id);
+        auto second = second_tree_.find_node(id);
+        return first != nullptr ? first : (second != nullptr ? second : nullptr);
+    }
+
 private:
-    uint8_t depth_;
-    uint8_t number_of_colors_;
-    BTree<> first_tree_;
-    BTree<> second_tree_;
+    auto get_generated_ids(int step) -> vector<int>
+    {
+        auto count_elems_in_tree = powl(2, depth_ + 1) - 1;
+        vector<int> ids;
+        generate_ids(ids, depth_);
+        transform(ids.begin(), ids.end(), ids.begin(), [&](int id) { return id + step; });
+
+        return ids;
+    }
+
+    auto generate_ids(vector<int>& ids, int depth) -> void
+    {
+        if (depth == 0)
+        {
+            return;
+        }
+        auto count_elems_in_tree = powl(2, depth + 1) - 1;
+        ids.push_back((count_elems_in_tree + 1) / 2);
+        generate_ids(ids, depth - 1);
+        generate_ids(ids, depth - 1);
+    }
+
+    int depth_;
+    int number_of_colors_;
+    BTree first_tree_;
+    BTree second_tree_;
 };
 
 int main()
 {
-    BWT bwt;
-    bwt.feel_first({8, 3, 10, 1, 6, 9, 14});
-    bwt.feel_second({8, 3, 10, 1, 6, 9, 14});
+    BWT bwt{2};
+
+    cout << "R: " << round(13 / 2.0);
 
     return 0;
 }
