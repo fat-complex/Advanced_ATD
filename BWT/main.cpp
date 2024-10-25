@@ -314,7 +314,5 @@ int main()
 {
     BWT bwt{2};
 
-    cout << "R: " << round(13 / 2.0);
-
     return 0;
 }
