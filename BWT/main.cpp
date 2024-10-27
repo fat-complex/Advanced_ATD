@@ -63,6 +63,9 @@ enum Color
 // default mode
 unordered_set colors = {Red, Green, Blue, Yellow};
 
+random_device rnd_device;
+mt19937_64 rng{rnd_device()};
+
 auto get_available_color(const unordered_set<Color>& busy_colors) -> Color
 {
     vector<Color> available_colors;
@@ -73,8 +76,6 @@ auto get_available_color(const unordered_set<Color>& busy_colors) -> Color
             available_colors.push_back(color);
         }
     }
-    random_device random_device;
-    mt19937_64 rng{random_device()};
     uniform_int_distribution<mt19937_64::result_type> distribution(0, available_colors.size() - 1);
     return available_colors[distribution(rng)];
 }
@@ -92,6 +93,25 @@ public:
         insert(id, root_, nullptr);
     }
 
+    auto insert(vector<int> ids) -> void
+    {
+        if (!is_sorted(ids.begin(), ids.end()))
+        {
+            sort(ids.begin(), ids.end());
+        }
+        insert(ids, 0, ids.size() - 1);
+    }
+
+    auto find_node(int id) -> Link
+    {
+        return find_node(root_, id);
+    }
+
+    [[nodiscard]] auto get_root() const -> Link
+    {
+        return root_;
+    }
+
     auto print(ostream& out = cout) const -> void
     {
         if (root_ == nullptr)
@@ -100,6 +120,11 @@ public:
             return;
         }
         out << as_string(root_) << endl;
+    }
+
+    [[nodiscard]] auto get_edges() const -> vector<ColorEdge>
+    {
+        return edges_;
     }
 
     [[nodiscard]] auto get_leafs() const -> vector<Link>
@@ -123,7 +148,7 @@ public:
         return leaf_edges;
     }
 
-    void insert(const int data, Link& root, Link parent)
+    auto insert(const int data, Link& root, Link parent) -> void
     {
         if (root == nullptr)
         {
@@ -143,6 +168,18 @@ public:
         }
     }
 
+    auto insert(const vector<int>& ids, int start, int end) -> void
+    {
+        if (start > end)
+        {
+            return;
+        }
+        auto mid = (start + end) / 2;
+        insert(ids[mid]);
+        insert(ids, start, mid - 1);
+        insert(ids, mid + 1, end);
+    }
+
     [[nodiscard]] string as_string(const Link& root) const
     {
         const std::string left_str = (root->left == nullptr) ? "{}" : as_string(root->left);
@@ -152,15 +189,9 @@ public:
         return result;
     }
 
-    auto find_node(int id) -> Link
-    {
-        return find_node(root_, id);
-
-    }
-
     auto find_node(Link& root, int id) -> Link
     {
-        if (root_ == nullptr or root->id == id)
+        if (root == nullptr or root->id == id)
         {
             return root;
         }
@@ -171,11 +202,12 @@ public:
         return find_node(root->right, id);
     }
 
-    auto color_edge_parent_to_child(Link leaf, const Link parent) -> void
+    auto color_edge_parent_to_child(Link leaf, const Link parent, Color excluded_color = Noop)
+        -> ColorEdge
     {
         if (parent == nullptr)
         {
-            return;
+            return ColorEdge{nullptr, nullptr, Noop};
         }
         auto color_result = Color::Noop;
         auto parent_color = get_color_edge(parent, parent->parent);
@@ -197,8 +229,14 @@ public:
         {
             color_result = get_available_color({parent_color});
         }
+        if (color_result == Noop)
+        {
+            color_result = get_available_color({parent_color});
+        }
         auto color_edge = ColorEdge(leaf, parent, color_result);
-        edges_.push_back(move(color_edge));
+        edges_.push_back(color_edge);
+
+        return color_edge;
     }
 
     auto get_color_edge(Link u, Link v) -> Color
@@ -234,30 +272,14 @@ public:
 class BWT
 {
 public:
-    explicit BWT(const uint8_t depth = 4, const uint8_t number_of_colors = 4)
+    explicit BWT(const uint8_t depth, int start_id, const uint8_t number_of_colors = 4)
         : depth_{depth}
         , number_of_colors_{number_of_colors}
     {
-        get_generated_ids(2);
-        feel_first(get_generated_ids(0));
-        feel_second(get_generated_ids(1));
+        feel_tree(get_generated_ids(start_id), first_tree_);
+        leafs_ = first_tree_.get_leafs();
+        feel_tree(get_generated_ids(first_tree_.get_leafs().back()->id + 2), second_tree_);
         connect();
-    }
-
-    auto feel_first(const vector<int>& nodes) -> void
-    {
-        for (const auto& node : nodes)
-        {
-            first_tree_.insert(node);
-        }
-    }
-
-    auto feel_second(const vector<int>& nodes) -> void
-    {
-        for (const auto& node : nodes)
-        {
-            second_tree_.insert(node);
-        }
     }
 
     auto connect() -> void
@@ -265,13 +287,37 @@ public:
         auto first_leafs = first_tree_.get_leafs();
         auto second_leafs = second_tree_.get_leafs();
 
-        for (auto& leaf1 : first_leafs)
+        uniform_int_distribution<mt19937_64::result_type> distribution(0, second_leafs.size() - 1);
+        for (auto& leaf : first_leafs)
         {
-            for (auto& leaf2 : second_leafs)
-            {
-                first_tree_.color_edge_parent_to_child(leaf1, leaf2);
-            }
+            const auto& bindable_leaf1 = second_leafs[distribution(rng)];
+            const auto& bindable_leaf2 = second_leafs[distribution(rng)];
+            leaf->left = bindable_leaf1;
+            leaf->right = bindable_leaf2;
+            const auto edge1 = first_tree_.color_edge_parent_to_child(bindable_leaf1, leaf);
+            auto edge2 =
+                first_tree_.color_edge_parent_to_child(bindable_leaf2, leaf, edge1.property);
         }
+    }
+
+    auto random_walk(int id) -> Node::Link
+    {
+        auto first = first_tree_.find_node(id);
+        if (first != nullptr)
+        {
+            return first;
+        }
+        uniform_int_distribution<mt19937_64::result_type> distribution1(0, leafs_.size() - 1);
+        auto some_leafs = leafs_[distribution1(rng)];
+
+        uniform_int_distribution<mt19937_64::result_type> distribution2(0, 1);
+        auto second_tree_branch = distribution2(rng) == 0 ? some_leafs->left : some_leafs->right;
+
+        while (second_tree_branch and second_tree_branch->id != id)
+        {
+            second_tree_branch = second_tree_branch->parent;
+        }
+        return second_tree_branch;
     }
 
     auto find_by_id(int id)
@@ -282,37 +328,31 @@ public:
     }
 
 private:
-    auto get_generated_ids(int step) -> vector<int>
+    static auto feel_tree(const vector<int>& ids, BTree& tree) -> void
     {
-        auto count_elems_in_tree = powl(2, depth_ + 1) - 1;
-        vector<int> ids;
-        generate_ids(ids, depth_);
-        transform(ids.begin(), ids.end(), ids.begin(), [&](int id) { return id + step; });
+        tree.insert(ids);
+    }
 
+    [[nodiscard]] auto get_generated_ids(int step) const -> vector<int>
+    {
+        const auto count_elems_in_tree = static_cast<int>(pow(2, depth_ + 1) - 1);
+        vector<int> ids(count_elems_in_tree);
+        iota(ids.begin(), ids.end(), step);
         return ids;
     }
-
-    auto generate_ids(vector<int>& ids, int depth) -> void
-    {
-        if (depth == 0)
-        {
-            return;
-        }
-        auto count_elems_in_tree = powl(2, depth + 1) - 1;
-        ids.push_back((count_elems_in_tree + 1) / 2);
-        generate_ids(ids, depth - 1);
-        generate_ids(ids, depth - 1);
-    }
-
     int depth_;
     int number_of_colors_;
     BTree first_tree_;
     BTree second_tree_;
+    vector<Node::Link> leafs_;
 };
 
 int main()
 {
-    BWT bwt{2};
+    BWT bwt{/*depth=*/2, /*start id=*/1};
+    auto res = bwt.random_walk(12);
+
+    cout << res->id << endl;
 
     return 0;
 }
