@@ -88,8 +88,11 @@ public:
         PerformanceRole
     };
     explicit RoundRobinModel(QObject* parent = nullptr)
-        : QObject(parent), executors_model_{std::make_unique<ExecutorsModel>(this)}, tasks_model_{std::make_unique<QStringListModel>(this)}
-    {}
+        : QObject(parent)
+        , executors_model_{std::make_unique<ExecutorsModel>(this)}
+        , tasks_model_{std::make_unique<QStringListModel>(this)}
+    {
+    }
 
     ExecutorsModel* executorsModel()
     {
@@ -99,7 +102,9 @@ public:
     QStringListModel* tasks()
     {
         QStringList list;
-        list << "A" << "B" << "C";
+        list << "A"
+             << "B"
+             << "C";
         tasks_model_->setStringList(list);
 
         return tasks_model_.get();
