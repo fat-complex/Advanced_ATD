@@ -162,8 +162,6 @@ int main(int argc, char* argv[])
     QQmlContext* context = engine.rootContext();
 
     RoundRobinModel model{&guiApp};
-    model.executorsModel()->push({"GG", 1});
-    model.executorsModel()->push({"WP", 2});
 
     context->setContextProperty("roundRobin", QVariant::fromValue(&model));
 
