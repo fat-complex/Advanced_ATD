@@ -52,8 +52,22 @@ Window {
             }
         }
 
+        Button {
+            id: pause
+
+            width: 182
+            height: 40
+
+            text: "Pause"
+
+            onClicked: console.log("Timer stopped")
+        }
+
         Row {
             id: row2
+
+            height: 300
+
             ListView {
                 id: executors
 
@@ -62,7 +76,7 @@ Window {
 
                 clip: true
 
-                model: rounRobin
+                model: rounRobin.executorsModel
 
                 delegate: ItemDelegate {
                     Row {
@@ -78,8 +92,13 @@ Window {
                     }
                     onClicked: {
                         executors.currentIndex = index;
+                        tasks.model = rounRobin.tasks
                     }
                     highlighted: executors.currentIndex === index
+                }
+
+                Component.onCompleted: {
+                    executors.currentIndex = -1
                 }
             }
 
@@ -89,29 +108,14 @@ Window {
                 width: 225
                 height: 432
 
-                model: ListModel {
-                    ListElement {
-                        name: "Red"
-                    }
+                model: []
 
-                    ListElement {
-                        name: "Green"
-                    }
-
-                    ListElement {
-                        name: "Blue"
-                    }
-
-                    ListElement {
-                        name: "White"
-                    }
-                }
                 delegate: Row {
                     spacing: 5
 
                     Text {
                         width: 100
-                        text: name
+                        text: display
                     }
                 }
             }
@@ -163,14 +167,6 @@ Window {
                     }
                 }
             }
-        }
-        Button {
-            id: pause
-
-            width: 182
-            height: 40
-
-            text: "Pause"
         }
     }
 
@@ -273,29 +269,5 @@ Window {
                 }
             }
         }
-    }
-    Item {
-        id: item
-        component MinMax:
-            Row {
-            spacing: 10
-            Label {
-                text: "He he"
-            }
-            Label {
-                text: "Min"
-            }
-            TextField {
-            }
-            Label {
-                text: "Max"
-            }
-            TextField {
-            }
-        }
-
-        property string text: ""
-        property int min: 0
-        property int max: 0
     }
 }

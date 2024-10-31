@@ -16,7 +16,9 @@ find_package(Qt6 REQUIRED COMPONENTS
         Gui
         REQUIRED)
 
-set(SOURCES main.cpp)
+set(SOURCES main.cpp
+        RoundRobin.cpp
+        RoundRobin.h)
 qt6_add_resources(SOURCES qml.qrc)
 
 add_executable(${PROJECT_NAME}
