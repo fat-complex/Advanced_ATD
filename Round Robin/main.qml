@@ -28,18 +28,27 @@ Window {
                 height: 40
 
                 text: "New"
+
+                onClicked: roundRobin.restart()
             }
 
             RadioButton {
                 id: radioButton1
 
                 text: "A method"
+                checked: roundRobin.settings.Amethod
+
+                onCheckedChanged: roundRobin.settings.Amethod = checked
             }
 
             RadioButton {
                 id: radioButton2
 
                 text: "B method"
+
+                checked: roundRobin.settings.Bmethod
+
+                onCheckedChanged: roundRobin.settings.Bmethod = checked
             }
 
             Button {
@@ -60,7 +69,7 @@ Window {
 
             text: "Pause"
 
-            onClicked: console.log("Timer stopped")
+            onClicked: rounRobin.pause()
         }
 
         Row {
@@ -92,7 +101,7 @@ Window {
                     }
                     onClicked: {
                         executors.currentIndex = index;
-                        tasks.model = rounRobin.tasks
+                        tasks.model = rounRobin.tasks(name)
                     }
                     highlighted: executors.currentIndex === index
                 }
@@ -108,7 +117,7 @@ Window {
                 width: 225
                 height: 432
 
-                model: []
+                model: roundRobin.InfoModel
 
                 delegate: Row {
                     spacing: 5
@@ -126,30 +135,7 @@ Window {
                 width: 225
                 height: 432
 
-                model: ListModel {
-                    ListElement {
-                        executor: "Red"
-                        taskName: "Me"
-                        round: 1
-                    }
-
-                    ListElement {
-                        executor: "Green"
-                        taskName: "Me"
-                    }
-
-                    ListElement {
-                        executor: "Blue"
-                        taskName: "Me"
-                        round: 1
-                    }
-
-                    ListElement {
-                        executor: "White"
-                        taskName: "Me"
-                        round: 1
-                    }
-                }
+                model: roundRobin.InfoModel
                 delegate: Row {
                     spacing: 5
 
@@ -193,14 +179,19 @@ Window {
         contentItem: Column {
             spacing: 10
             Row {
+                id: tmt
                 spacing: 10
                 Label {
                     text: "Timeout:"
                 }
                 TextField {
+                    text: rounRobin.settings.timeout
+                    onTextChanged: rounRobin.settings.timeout = parseInt(text)
                 }
             }
             Row {
+                id: exec
+
                 spacing: 10
                 Label {
                     text: "Executors:"
@@ -209,15 +200,21 @@ Window {
                     text: "Min"
                 }
                 TextField {
+                    text: rounRobin.settings.executor.min
+                    onTextChanged: rounRobin.settings.executor.min = parseInt(text)
                 }
 
                 Label {
                     text: "Max"
                 }
                 TextField {
+                    text: rounRobin.settings.executor.max
+                    onTextChanged: rounRobin.settings.executor.max = parseInt(text)
                 }
             }
             Row {
+                id: perf
+
                 spacing: 10
                 Label {
                     text: "Performance:"
@@ -226,15 +223,21 @@ Window {
                     text: "Min"
                 }
                 TextField {
+                    text: rounRobin.settings.performance.min
+                    onTextChanged: rounRobin.settings.performance.min = parseInt(text)
                 }
 
                 Label {
                     text: "Max"
                 }
                 TextField {
+                    text: rounRobin.settings.performance.max
+                    onTextChanged: rounRobin.settings.performance.max = parseInt(text)
                 }
             }
             Row {
+                id: tsk
+
                 spacing: 10
                 Label {
                     text: "Tasks:"
@@ -243,15 +246,21 @@ Window {
                     text: "Min"
                 }
                 TextField {
+                    text: rounRobin.settings.tasks.min
+                    onTextChanged: rounRobin.settings.tasks.min = parseInt(text)
                 }
 
                 Label {
                     text: "Max"
                 }
                 TextField {
+                    text: rounRobin.settings.tasks.max
+                    onTextChanged: rounRobin.settings.tasks.max = parseInt(text)
                 }
             }
             Row {
+                id: compl
+
                 spacing: 10
                 Label {
                     text: "Complexity:"
@@ -260,12 +269,16 @@ Window {
                     text: "Min"
                 }
                 TextField {
+                    text: rounRobin.settings.complexity.min
+                    onTextChanged: rounRobin.settings.complexity.min = parseInt(text)
                 }
 
                 Label {
                     text: "Max"
                 }
                 TextField {
+                    text: rounRobin.settings.complexity.max
+                    onTextChanged: rounRobin.settings.complexity.max = parseInt(text)
                 }
             }
         }

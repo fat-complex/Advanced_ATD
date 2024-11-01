@@ -1,6 +1,5 @@
-#include "RoundRobin.h"
+#include "RoundRobinModel.h"
 
-#include <QAbstractListModel>
 #include <QGuiApplication>
 #include <QObject>
 #include <QQmlApplicationEngine>
@@ -24,7 +23,6 @@ struct proccess
         burst_Time = 0;
     }
 };
-
 
 void to_model(RoundRobinModel& model)
 {
@@ -151,8 +149,6 @@ void to_model(RoundRobinModel& model)
     else
         std::cout << "\nThe input file could not be opened.\n";
 }
-
-
 
 int main(int argc, char* argv[])
 {
